@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fly, Drive, Bus or Train?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one narrow column. Route picker, then one row per mode with a CO2 bar, then the math and sources. */
+:root{
+  --bg:#f4f6f5; --surface:#ffffff; --ink:#15211f; --muted:#5b6b68; --line:#d9e1df;
+  --accent:#0d6b5f; --accent-soft:#dcefeb; --bar:#2f8f80; --bar-flight:#b4553a; --good:#1d7a3e; --good-soft:#e1f3e6;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1716; --surface:#16211f; --ink:#e6eeec; --muted:#9db0ac; --line:#2a3836;
+    --accent:#5cc7b5; --accent-soft:#183a35; --bar:#4fb3a2; --bar-flight:#e08a6d; --good:#6fd394; --good-soft:#163524;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1716; --surface:#16211f; --ink:#e6eeec; --muted:#9db0ac; --line:#2a3836;
+  --accent:#5cc7b5; --accent-soft:#183a35; --bar:#4fb3a2; --bar-flight:#e08a6d; --good:#6fd394; --good-soft:#163524;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:880px;margin:0 auto;padding:28px 18px 56px;display:grid;gap:24px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,5vw,40px);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:20px;margin:0;text-wrap:balance}
+.lede{color:var(--muted);margin:6px 0 0;max-width:62ch}
+.picker{display:flex;flex-wrap:wrap;gap:12px;align-items:end;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.field{display:grid;gap:4px;flex:1 1 180px}
+label{font-size:13px;font-weight:600;color:var(--muted)}
+select,button{font:inherit;color:var(--ink)}
+select{appearance:none;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235b6b68' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid var(--line);border-radius:8px;padding:10px 36px 10px 12px;font-weight:500}
+button.swap{background:var(--accent-soft);border:1px solid transparent;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:600;color:var(--accent)}
+select:focus-visible,button:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.basis{flex-basis:100%;font-size:13px;color:var(--muted);margin:0}
+.takeaway{font-size:18px;margin:0;max-width:62ch}
+.takeaway strong{color:var(--good)}
+.sortbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.sortbar button{background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;font-weight:500;color:var(--ink)}
+.sortbar button[aria-pressed="true"]{background:var(--accent-soft);border-color:transparent;color:var(--accent);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.charts{display:grid;gap:14px}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px 10px}
+.chart h3{font-family:var(--display);font-size:17px;font-weight:600;margin:0 0 2px}
+.chart .sub{font-size:13px;color:var(--muted);margin:0 0 10px}
+.cols{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;border-bottom:1px solid var(--muted);padding:0 2px}
+.col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0}
+.cval{font-size:13px;font-weight:600;text-align:center;line-height:1.25;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.cval small{font-weight:400;color:var(--muted)}
+.cval .best{display:block;margin:2px 0 0;color:var(--good)}
+.cstack{width:min(56px,80%);display:flex;flex-direction:column-reverse}
+.cfill{border-radius:0}
+.cfill.top{border-radius:4px 4px 0 0}
+.cfill.hi{opacity:.4}
+.cfill.cbrk{-webkit-mask:linear-gradient(195deg,#000 14px,transparent 14px,transparent 19px,#000 19px,#000 24px,transparent 24px,transparent 29px,#000 29px);mask:linear-gradient(195deg,#000 14px,transparent 14px,transparent 19px,#000 19px,#000 24px,transparent 24px,transparent 29px,#000 29px)}
+.clabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:6px 2px 0}
+.clab{font-size:12px;text-align:center;color:var(--ink);line-height:1.25;display:flex;flex-direction:column;align-items:center;gap:4px}
+.clab i{width:10px;height:10px;border-radius:3px}
+.cna{font-size:12px;color:var(--muted);text-align:center;line-height:1.3;padding:0 2px}
+.na-val{font-size:13px;color:var(--muted)}
+.note{grid-column:1/-1;font-size:13px;color:var(--muted);margin:0}
+.scale-note{font-size:13px;color:var(--muted);margin:0}
+:root{--m1:#2a78d6;--m2:#eb6834;--m3:#1baf7a;--m4:#eda100;--m5:#e87ba4;--m6:#008300}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--m1:#3987e5;--m2:#d95926;--m3:#199e70;--m4:#c98500;--m5:#d55181;--m6:#0ca30c}}
+:root[data-theme="dark"]{--m1:#3987e5;--m2:#d95926;--m3:#199e70;--m4:#c98500;--m5:#d55181;--m6:#0ca30c}
+.math{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 16px}
+details{border-bottom:1px solid var(--line);padding:10px 0}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;font-weight:600}
+details p{margin:8px 0 0;font-size:15px;max-width:70ch;font-variant-numeric:tabular-nums}
+summary .msub{font-weight:400;color:var(--muted);font-size:14px;margin-left:8px}
+.mbody{display:grid;gap:0;margin-top:8px}
+.mrow{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:4px 16px;padding:10px 0;border-top:1px solid var(--line);font-size:15px;font-variant-numeric:tabular-nums;align-items:start}
+.mlab{font-weight:600;color:var(--muted)}
+.mcalc{line-height:1.6}
+.mres{font-weight:600;text-align:right;line-height:1.6;white-space:nowrap}
+.mhint{font-size:13px;color:var(--muted)}
+.mnote{margin:4px 0 0;font-size:15px;color:var(--muted)}
+@media (max-width:560px){ .mrow{grid-template-columns:1fr auto} .mlab{grid-column:1/-1} }
+.foot{font-size:14px;color:var(--muted);display:grid;gap:8px}
+.foot p{margin:0;max-width:72ch}
+.sources{font-size:14px;margin:0;padding-left:18px;display:grid;gap:4px}
+.sources a{color:var(--accent);word-break:break-word}
+@media (max-width:560px){ .cols,.clabs{gap:4px} .cval{font-size:11px} .cval small{display:none} .clab{font-size:11px} .cna{font-size:11px} }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Fly, drive, bus or train?</h1>
+    <p class="lede">Pick two cities to compare the CO₂, cost and time of each way to travel between them. All figures are per person, one way. Times are door to door.</p>
+  </header>
+
+  <form class="picker" id="picker" aria-label="Choose a route">
+    <div class="field"><label for="from">From</label><select id="from"></select></div>
+    <button type="button" class="swap" id="swap" aria-label="Swap From and To">⇄ Swap</button>
+    <div class="field"><label for="to">To</label><select id="to"></select></div>
+    <p class="basis" id="basis"></p>
+  </form>
+
+  <p class="takeaway" id="takeaway"></p>
+
+  <section aria-labelledby="modes-h" style="display:grid;gap:12px">
+    <h2 id="modes-h">Compare the options</h2>
+    <div class="sortbar" role="group" aria-label="Sort by"><span>Sort by</span>
+      <button type="button" data-sort="co2" aria-pressed="true">CO₂</button>
+      <button type="button" data-sort="time" aria-pressed="false">Time</button>
+      <button type="button" data-sort="cost" aria-pressed="false">Cost</button>
+    </div>
+    <div class="legend" id="legend" aria-label="Colour key"></div>
+    <div class="charts" id="modes"></div>
+    <p class="scale-note" id="scalenote"></p>
+  </section>
+
+  <section aria-labelledby="math-h" style="display:grid;gap:12px">
+    <h2 id="math-h">Show the math</h2>
+    <div class="math" id="math"></div>
+  </section>
+
+  <section class="foot" aria-labelledby="notes-h">
+    <h2 id="notes-h">Notes</h2>
+    <p>* Flight fares are estimates, taken in November 2026 for travel in January 2027 (half of the average round-trip fare for nonstop flights on 20–23 January, from Google Flights; the average of the cheapest and median fares). Fares change daily.</p>
+    <p>CO₂ only. These figures count the fuel burned (or electricity used) on the trip. They leave out building the vehicles and, for flights, contrails and other effects at altitude, so the flight figures are conservative.</p>
+    <p>Occupancy assumed. <b>Train:</b> the India GHG Program's average of 7.837 g CO₂ per passenger-km for non-suburban trains in 2014–15. It divides the fuel and electricity the railways used by the passenger-km actually travelled that year, so it reflects the average occupancy of trains then, not a set number of passengers. <b>Sleeper bus:</b> 75% full, so 27 passengers in a 36-berth bus. <b>Car:</b> either 1 person or 4 people sharing. Fuller trains and buses emit less per person; emptier ones emit more.</p>
+    <h2 id="src-h" style="margin-top:8px">Sources</h2>
+    <ul class="sources" id="sources"></ul>
+  </section>
+</main>
+
+<script id="calc">
+const CITIES = ["Bengaluru","Chennai","Delhi","Hyderabad","Kolkata","Mumbai"];
+const A = { trainG:7.837, petrolKg:2.3, kmpl:15, dieselKg:2.6444, busKmpl:3.5, berths:36, occ:0.75,
+  petrolRs:111.21, tollLo:1000/660, tollHi:1500/660, wait:1, exit:0.5, trainBuf:3, busBuf:1.5, fast:55, slow:41 };
+const ACCESS = { Bengaluru:[2,2], Chennai:[1,1], Delhi:[1,1.5], Mumbai:[1,1.5], Hyderabad:[1,1.5], Kolkata:[1,1.5] };
+// One row per city pair (same as the Inputs tab of the data sheet). null = not available yet.
+const ROUTES = [
+ {a:"Bengaluru",b:"Chennai",road:330,rail:369,train:"Shatabdi / Vande Bharat",tclass:"chair car",tH:[4.5,5],tFare:[1000,1000],fH:1,bH:[6.5,7],bFare:[590,1184],eco:69,bus:132,fEco:[7000,8000],fBus:[37000,null]},
+ {a:"Delhi",b:"Mumbai",road:1422,rail:1384,train:"Mumbai Rajdhani (12951/52)",tclass:"AC 3-tier",tH:[15.5,16],tFare:[2345,2345],fH:2.17,bH:null,bFare:null,eco:172,bus:375,fEco:[12000,12500],fBus:[57000,62500]},
+ {a:"Delhi",b:"Bengaluru",road:2167,rail:2371,train:"Bengaluru Rajdhani (22691/92)",tclass:"AC 3-tier",tH:[33.5,34],tFare:[2360,2360],fH:2.75,bH:null,bFare:null,eco:231,bus:509,fEco:[19000,20000],fBus:[67000,67000]},
+ {a:"Delhi",b:"Chennai",road:2201,rail:2182,train:"Chennai Rajdhani (12433/34), twice a week",tclass:"AC 3-tier",tH:[28,28.5],tFare:[2315,2390],fH:2.83,bH:null,bFare:null,eco:230,bus:548,fEco:[21500,22000],fBus:[63000,65000]},
+ {a:"Delhi",b:"Hyderabad",road:1578,rail:1667,train:"Secunderabad Rajdhani (12437/38), weekly",tclass:"AC 3-tier",tH:[21.5,22],tFare:[1945,1945],fH:2.25,bH:null,bFare:null,eco:176,bus:380,fEco:[18000,18000],fBus:[56000,57500]},
+ {a:"Mumbai",b:"Bengaluru",road:980,rail:1113,train:"Vande Bharat Sleeper (27651/52)",tclass:"AC 3-tier",tH:[15.75,16.25],tFare:[2810,2810],fH:1.75,bH:[15,19],bFare:[2415,2625],eco:132,bus:286,fEco:[11000,13000],fBus:[49000,60000]},
+ {a:"Mumbai",b:"Chennai",road:1335,rail:1268,train:"LTT–Chennai Express (12163/64)",tclass:"AC 3-tier",tH:[21.5,22],tFare:[1490,1490],fH:2,bH:null,bFare:null,eco:162,bus:376,fEco:[14000,14000],fBus:[49500,51000]},
+ {a:"Mumbai",b:"Hyderabad",road:739,rail:796,train:"LTT–Secunderabad Duronto (12219/20)",tclass:"AC 3-tier",tH:[12,12.5],tFare:[1140,1140],fH:1.5,bH:[14,16],bFare:[818,1617],eco:108,bus:222,fEco:[12500,12500],fBus:[41000,42500]},
+ {a:"Bengaluru",b:"Hyderabad",road:569,rail:610,train:"Kacheguda–Yesvantpur Vande Bharat (20703/04)",tclass:"chair car",tH:[8.25,8.5],tFare:[1540,1600],fH:1.25,bH:[9,10.5],bFare:[950,1400],eco:92,bus:187,fEco:[10000,10500],fBus:null,noBus:true},
+ {a:"Chennai",b:"Hyderabad",road:627,rail:693,train:"Chennai–Hyderabad SF Express (12603/04)",tclass:"AC 3-tier",tH:[12,12.5],tFare:[1000,1000],fH:1.25,bH:[10,12],bFare:[550,1400],eco:94,bus:226,fEco:[10500,11000],fBus:null,noBus:true},
+ {a:"Delhi",b:"Kolkata",road:1486,rail:1449,train:"Howrah Rajdhani (12301/02)",tclass:"AC 3-tier",tH:[17,17.25],tFare:[1662,3036],fH:2.25,bH:null,bFare:null,eco:187,bus:428,fEco:[18000,18000],fBus:[55500,69000]},
+ {a:"Mumbai",b:"Kolkata",road:1943,rail:1968,train:"Mumbai–Howrah Duronto (12261/62)",tclass:"AC 3-tier",tH:[26.5,27.5],tFare:[2585,2610],fH:2.75,bH:null,bFare:null,eco:219,bus:478,fEco:[16000,17000],fBus:[64500,64500]},
+ {a:"Bengaluru",b:"Kolkata",road:1880,rail:1931,train:"Howrah–SMVT Bengaluru Duronto (12245/46)",tclass:"AC 3-tier",tH:[29.1,29.8],tFare:[2125,3025],fH:2.5,bH:null,bFare:null,eco:202,bus:434,fEco:[15500,16000],fBus:null,noBus:true},
+ {a:"Chennai",b:"Kolkata",road:1670,rail:1662,train:"Coromandel Express (12841/42)",tclass:"AC 3-tier",tH:[25.8,28],tFare:[1650,2000],fH:2.25,bH:null,bFare:null,eco:182,bus:450,fEco:[15500,15500],fBus:null,noBus:true},
+ {a:"Hyderabad",b:"Kolkata",road:1489,rail:1545,train:"Falaknuma Express (12703/04)",tclass:"AC 3-tier",tH:[26.1,26.25],tFare:[1735,1735],fH:2,bH:null,bFare:null,eco:180,bus:454,fEco:[13500,14000],fBus:null,noBus:true},
+];
+const r1 = x => Math.round(Math.round(x*10)/10);           // same as ROUND(ROUND(x,1),0)
+const rTo = (x,step) => Math.round(x/step)*step;
+const findRoute = (from,to) => ROUTES.find(r => (r.a===from&&r.b===to)||(r.a===to&&r.b===from));
+
+function compute(from,to){
+  const r = findRoute(from,to); if(!r) return null;
+  // Everything is one way, per person. Times are averages of the low and high estimates.
+  const litres = r.road/A.kmpl, fuelRs = litres*A.petrolRs;
+  const carKg = litres*A.petrolKg;
+  const busKg = r.road/A.busKmpl*A.dieselKg/(A.berths*A.occ);
+  const avg = (a,b) => Math.round((a+b)/2*10)/10;
+  const carT = avg(r.road/A.fast, r.road/A.slow);
+  const flT = (ACCESS[from][0]+ACCESS[to][0]+ACCESS[from][1]+ACCESS[to][1])/2 + A.wait + r.fH + A.exit;
+  const one = v => [v, v];
+  const mean = f => f[1]!=null ? (f[0]+f[1])/2 : f[0];
+  const half = f => f ? one(rTo(mean(f)/2, 50)) : null;   // fares in the data are round trip; use the average, halved
+  const tollAvg = (A.tollLo + A.tollHi)/2;
+  const longDrive = r.road/A.fast > 12;
+  return { r, modes: [
+    {id:"train", name:"Train", co2: Math.round(r.rail*A.trainG/100)/10, time: one(avg(r.tH[0], r.tH[1]) + A.trainBuf), cost: one(rTo(mean(r.tFare), 5))},
+    {id:"bus", name:"Sleeper bus (75% full)", co2: r.bH? r1(busKg): null, time: r.bH? one(avg(r.bH[0], r.bH[1]) + A.busBuf) : null, cost: r.bFare? one(rTo(mean(r.bFare),50)) : null, na: !r.bH && "No practical direct bus on this route"},
+    {id:"car4", name:"Petrol car (4 people)", co2: r1(carKg/4), time: one(carT), cost: one(rTo((fuelRs+r.road*tollAvg)/4,50)), note: longDrive && "Driving time only; needs overnight stops"},
+    {id:"eco", name:"Flight (economy)", flight:true, co2: r.eco!=null ? Math.round(r.eco/2) : null, time: one(Math.round(flT*10)/10), cost: half(r.fEco), star:true},
+    {id:"car1", name:"Petrol car (alone)", co2: r1(carKg), time: one(carT), cost: one(rTo(fuelRs+r.road*tollAvg,100)), note: longDrive && "Driving time only; needs overnight stops"},
+    {id:"bus1", name:"Flight (business)", flight:true, co2: r.bus!=null ? Math.round(r.bus/2) : null, time: one(Math.round(flT*10)/10), cost: half(r.fBus), star:true, note: r.noBus && "No nonstop business class on this route; CO₂ is ICAO's business figure", noFare: r.noBus},
+  ]};
+}
+</script>
+<script>
+const SOURCES = [
+ ["All","Flight CO₂: ICAO Carbon Emissions Calculator","https://icec.icao.int/calculator"],
+ ["All","Train CO₂: India GHG Program (2015), rail emission factors","https://indiaghgp.org/sites/default/files/Rail%20Transport%20Emission.pdf"],
+ ["All","Petrol CO₂ per litre: Climate Box","https://climate-box.com/textbooks/how-to-prevent-dangerous-climate-change/3-2-energy-efficiency-and-energy-saving/3-2-1-environmentally-friendly-transport/"],
+ ["All","Diesel CO₂ per litre: TERI","https://teriin.org/sites/default/transport/Per_passenger_emission_in_Delhi_Different_Modes.pdf"],
+ ["All","Sleeper bus mileage: TrucksBuses","https://www.trucksbuses.com/buses/fully-built-buses/inter-city/volvo-9400-13-8m/mileage"],
+ ["All","Sleeper bus berths: Coach Builders India","https://coachbuildersindia.com/sleeper-buses-in-india-explained/"],
+ ["All","Petrol price (Mumbai): BankBazaar","https://www.bankbazaar.com/fuel/petrol-price-mumbai.html"],
+ ["Bengaluru–Chennai","Bus fare: zingbus","https://www.zingbus.com/blog/bangalore-to-chennai-by-bus-complete-guide/"],
+ ["Bengaluru–Chennai","Business fare: Air India","https://www.airindia.com/en-in/book-flights/bangalore-to-chennai-flights"],
+ ["Delhi–Mumbai","Road distance: Holidify","https://www.holidify.com/places/mumbai/how-to-reach/delhi-to-mumbai-1192.html"],
+ ["Delhi–Mumbai","Mumbai Rajdhani distance, time and fare: India.com","https://www.india.com/news/india-fastest-rajdhani-express-top-speed-stoppages-fares-shatabdi-express-duronto-express-tejas-express-vande-bharat-express-gatimaan-express-humsafar-express-garib-rath-express-jan-shatabdi-e-7675056/"],
+ ["Delhi–Bengaluru","Road distance: Holidify","https://www.holidify.com/places/bangalore/how-to-reach/delhi-to-bangalore-182.html"],
+ ["Delhi–Bengaluru","Bengaluru Rajdhani distance and time: ConfirmTkt","https://www.confirmtkt.com/train-schedule/22691-RAJDHANI-EXP"],
+ ["Delhi–Bengaluru","Bengaluru Rajdhani fare: ConfirmTkt","https://www.confirmtkt.com/train-seat-availability/22691-rajdhani-exp"],
+ ["Delhi–Chennai","Road distance: Holidify","https://www.holidify.com/places/chennai/how-to-reach/delhi-to-chennai-337.html"],
+ ["Delhi–Chennai","Chennai Rajdhani distance and time: Wikipedia","https://en.wikipedia.org/wiki/Chennai_Rajdhani_Express"],
+ ["Delhi–Chennai","Chennai Rajdhani fare: Explore India","https://exploreindia.in/?p=1425"],
+ ["Delhi–Hyderabad","Road distance: Holidify","https://www.holidify.com/places/hyderabad/how-to-reach/delhi-to-hyderabad-668.html"],
+ ["Delhi–Hyderabad","Secunderabad Rajdhani distance and time: RailYatri","https://www.railyatri.in/trains/route-12437-secunderabad-hazrat-nizamudin-rajdhani-expres"],
+ ["Delhi–Hyderabad","Secunderabad Rajdhani fare: ixigo","https://www.ixigo.com/trains/12437"],
+ ["Mumbai–Bengaluru","Road distance and bus: Holidify","https://www.holidify.com/places/bangalore/how-to-reach/mumbai-to-bangalore-192.html"],
+ ["Mumbai–Bengaluru","Vande Bharat Sleeper distance, time and fare: Asianet Newsable","https://newsable.asianetnews.com/karnataka-news/bengaluru-mumbai-vande-bharat-sleeper-launched-check-route-8-stops-timings-and-ticket-fares-articleshow-s4lnbdx"],
+ ["Mumbai–Chennai","Road distance: Holidify","https://www.holidify.com/places/chennai/how-to-reach/mumbai-to-chennai-346.html"],
+ ["Mumbai–Chennai","Train distance and time: ixigo","https://ixigo.com/by-train-rail/mumbai-to-chennai-by-train"],
+ ["Mumbai–Chennai","Train fare: Bajaj Finserv","https://bajajfinserv.in/12163-train-route"],
+ ["Mumbai–Hyderabad","Road distance: Holidify","https://www.holidify.com/places/hyderabad/how-to-reach/delhi-to-hyderabad-668.html"],
+ ["Mumbai–Hyderabad","Train distance, time and fare: ConfirmTkt","https://www.confirmtkt.com/trains/hyderabad-to-mumbai-train-tickets"],
+ ["Mumbai–Hyderabad","Bus time and fare: Rome2Rio","https://www.rome2rio.com/s/Mumbai/Hayathnagar"],
+ ["Bengaluru–Hyderabad","Road distance: Holidify","https://www.holidify.com/places/hyderabad/how-to-reach/delhi-to-hyderabad-668.html"],
+ ["Bengaluru–Hyderabad","Vande Bharat distance, time and fare: DNA India","https://www.dnaindia.com/india/report-bengaluru-hyderabad-vande-bharat-express-train-to-take-85-hours-check-timings-fares-kacheguda-yeshwantpur-3061812"],
+ ["Bengaluru–Hyderabad","Bus time and fare: IntrCity","https://www.intrcity.com/blog/?p=5593"],
+ ["Chennai–Hyderabad","Road distance: Holidify","https://www.holidify.com/places/chennai/how-to-reach/mumbai-to-chennai-346.html"],
+ ["Chennai–Hyderabad","Train distance, time and fare: erail","https://erail.in/trains-between-stations/MAS/HYB?view_mode=m"],
+ ["Chennai–Hyderabad","Bus time and fare: Rome2Rio","https://www.rome2rio.com/s/Hyderabad/Chetput"],
+ ["Delhi–Kolkata","Road distance: Holidify","https://www.holidify.com/places/delhi/how-to-reach/kolkata-to-delhi-435.html"],
+ ["Delhi–Kolkata","Howrah Rajdhani distance and time: ixigo","https://www.ixigo.com/trains/12301"],
+ ["Delhi–Kolkata","Howrah Rajdhani fare: Bajaj Finserv","https://bajajfinserv.in/12301-train-route"],
+ ["Mumbai–Kolkata","Road distance: Holidify","https://www.holidify.com/places/mumbai/how-to-reach/kolkata-to-mumbai-1186.html"],
+ ["Mumbai–Kolkata","Duronto distance and time: ixigo","https://www.ixigo.com/trains/12261"],
+ ["Mumbai–Kolkata","Duronto fare: Bajaj Finserv","https://bajajfinserv.in/csmt-hwh-exp-12261"],
+ ["Bengaluru–Kolkata","Road distance: Holidify","https://www.holidify.com/places/bangalore/how-to-reach/kolkata-to-bangalore-175.html"],
+ ["Bengaluru–Kolkata","Duronto distance, time and fare: ixigo","https://www.ixigo.com/trains/DurontoExpress-12246"],
+ ["Chennai–Kolkata","Road distance: Holidify","https://www.holidify.com/places/chennai/how-to-reach/kolkata-to-chennai-332.html"],
+ ["Chennai–Kolkata","Coromandel Express distance and time: ixigo","https://www.ixigo.com/trains/12841"],
+ ["Chennai–Kolkata","Coromandel Express fare: TravelKhana","https://www.travelkhana.com/rail-info/tag/coromandel-express/"],
+ ["Hyderabad–Kolkata","Road distance: Holidify","https://www.holidify.com/places/hyderabad/how-to-reach/kolkata-to-hyderabad-661.html"],
+ ["Hyderabad–Kolkata","Falaknuma Express distance and time: ixigo","https://www.ixigo.com/trains/12703"],
+ ["Hyderabad–Kolkata","Falaknuma Express fare: Bajaj Finserv","https://www.bajajfinserv.in/12704-train-route"],
+];
+const $ = id => document.getElementById(id);
+const inr = n => "₹" + n.toLocaleString("en-IN");
+const hrs = x => (Math.round(x*10)/10).toString();
+const range = (a,b,f) => (b==null) ? f(a)+"+" : (a===b ? f(a) : f(a)+"–"+f(b));
+const fmtTime = t => t ? range(t[0],t[1],hrs)+" hrs" : "—";
+const fmtCost = c => c ? range(c[0],c[1],inr) : "To be added";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function fill(sel, value){ sel.innerHTML = CITIES.map(c => `<option value="${c}"${c===value?" selected":""}>${c}</option>`).join(""); }
+fill($("from"),"Bengaluru"); fill($("to"),"Chennai");
+
+let sortKey = "co2";
+document.querySelectorAll(".sortbar button").forEach(b => b.addEventListener("click", () => { sortKey = b.dataset.sort; render(); }));
+function render(){
+  let from = $("from").value, to = $("to").value;
+  if(from===to){ to = CITIES.find(c=>c!==from); $("to").value = to; }
+  const res = compute(from,to), r = res.r;
+  $("basis").textContent = `${r.road.toLocaleString("en-IN")} km by road · ${r.rail.toLocaleString("en-IN")} km by rail · one way, per person`;
+  // [low, high] for each measure, or null when there's no figure
+  const get = {
+    co2: m => m.co2!=null ? [m.co2, m.co2] : null,
+    time: m => m.time && !m.na ? [m.time[0], m.time[1] ?? m.time[0]] : null,
+    cost: m => m.cost && !m.na && !m.noFare ? [m.cost[0], m.cost[1] ?? m.cost[0]] : null,
+  };
+  const mid = v => v ? (v[0]+v[1])/2 : Infinity;
+  const COLOR = {train:"var(--m1)", bus:"var(--m2)", car4:"var(--m3)", eco:"var(--m4)", car1:"var(--m5)", bus1:"var(--m6)"};
+  const low = [...res.modes].sort((x,y)=>mid(get.co2(x))-mid(get.co2(y)))[0];
+  $("legend").innerHTML = res.modes.map(m => `<span><i style="background:${COLOR[m.id]}"></i>${esc(m.name)}</span>`).join("");
+  const CH = [
+    {k:"co2", title:"CO₂", sub:"kg per person, one way", best:"Lowest", fmt:(v)=>`${v[0]} <small>kg</small>`},
+    {k:"time", title:"Time", sub:"average hours, door to door", best:"Fastest", fmt:(v)=>`${range(v[0],v[1],hrs)} <small>hrs</small>`},
+    {k:"cost", title:"Cost", sub:"₹ per person, one way", best:"Cheapest", fmt:(v,m)=>`${range(v[0],v[1],inr)}${m.star?"*":""}`},
+  ];
+  const brokenNotes = [];
+  // One order for all three charts, set by the chosen measure; that chart goes first
+  const order = [...res.modes].sort((x,y) => mid(get[sortKey](x)) - mid(get[sortKey](y)));
+  CH.sort((a,b) => (b.k===sortKey) - (a.k===sortKey));
+  document.querySelectorAll(".sortbar button").forEach(b => b.setAttribute("aria-pressed", b.dataset.sort===sortKey));
+  $("modes").innerHTML = CH.map(c => {
+    const vals = res.modes.map(m => ({m, v:get[c.k](m)}));
+    const highs = vals.filter(x=>x.v).map(x=>x.v[1]).sort((a,b)=>b-a);
+    let cap = highs[0], broken = false;
+    if(highs.length>1 && highs[0] > 2*highs[1]){ cap = highs[1]*1.2; broken = true; }
+    const bestV = Math.min(...vals.map(x=>mid(x.v)));
+    const SHORT = {train:"Train", bus:"Sleeper bus", car4:"Car, 4 people", eco:"Flight, economy", car1:"Car, alone", bus1:"Flight, business"};
+    const HPX = 200;
+    const sorted = order.map(m => vals.find(x => x.m===m));
+    const colsHtml = sorted.map(({m,v}) => {
+      const col = COLOR[m.id];
+      if(!v) return `<div class="col"><div class="cna">${m.na ? "No practical bus" : m.noFare ? "No nonstop business" : "n/a"}</div></div>`;
+      let stack;
+      if(v[0] > cap){ stack = `<div class="cfill top cbrk" style="height:${HPX}px;background:${col}"></div>`; brokenNotes.push(`${m.name.toLowerCase()} ${c.k==="co2"?"CO₂":c.title.toLowerCase()}`); }
+      else {
+        const h1 = Math.max(2, v[0]/cap*HPX), h2 = Math.min(HPX, v[1]/cap*HPX) - h1;
+        stack = `<div class="cfill${h2>0.5?"":" top"}" style="height:${h1}px;background:${col}"></div>` + (h2>0.5 ? `<div class="cfill hi top" style="height:${h2}px;background:${col}"></div>` : "");
+      }
+      const txt = c.fmt(v,m).replace("–","–<br>");
+      return `<div class="col"><div class="cval">${txt}${mid(v)===bestV?`<span class="best">${c.best}</span>`:""}</div><div class="cstack">${stack}</div></div>`;
+    }).join("");
+    const labs = sorted.map(({m}) => `<div class="clab"><i style="background:${COLOR[m.id]}"></i>${esc(SHORT[m.id])}</div>`).join("");
+    const rows = `<div class="cols" style="min-height:${HPX+70}px">${colsHtml}</div><div class="clabs">${labs}</div>`;
+    return `<section class="chart" aria-label="${c.title}"><h3>${c.title}</h3><p class="sub">${c.sub}</p>${rows}</section>`;
+  }).join("");
+  const notes = [];
+  if(brokenNotes.length) notes.push(`A column with a break (${brokenNotes.join(", ")}) is too long to draw to scale; its value is shown in full.`);
+    if(res.modes.some(m=>m.note && /overnight/.test(m.note))) notes.push("Driving times are time behind the wheel only; long drives need overnight stops.");
+  $("scalenote").textContent = notes.join(" ");
+
+  const train = res.modes[0], eco = res.modes[3], car1 = res.modes[4];
+  let t = `On ${from}–${to}, the <strong>${esc(low.name.toLowerCase())}</strong> emits the least CO₂: ${low.co2} kg per person, one way.`;
+  if(eco.co2!=null) t += ` A flight in economy emits about ${Math.round(eco.co2/low.co2)} times as much (${eco.co2} kg).`;
+  else t += ` Driving alone emits about ${Math.round(car1.co2/low.co2)} times as much (${car1.co2} kg).`;
+  $("takeaway").innerHTML = t;
+
+  // Show the math: one block per mode, with CO2, time and cost as separate steps and the result on the right
+  const f1 = n => n.toLocaleString("en-IN",{maximumFractionDigits:1});
+  const M = res.modes, L = r.road/A.kmpl, busL = r.road/A.busKmpl, tollAvg = (A.tollLo+A.tollHi)/2;
+  const h2 = x => (Math.round(x*100)/100).toString();
+  const u = x => `${h2(x)} ${+x===1 ? "hr" : "hrs"}`;
+  const half2 = (a,b) => hrs((a+b)/2);
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const accFrom = (ACCESS[from][0]+ACCESS[from][1])/2, accTo = (ACCESS[to][0]+ACCESS[to][1])/2;
+  const row = (label, steps, result) => `<div class="mrow"><div class="mlab">${label}</div><div class="mcalc">${steps}</div><div class="mres">${result}</div></div>`;
+  const fuelRs = Math.round(L*A.petrolRs), tollRs = Math.round(r.road*tollAvg);
+  const blocks = [
+    {h:"Train", sub:`${esc(r.train)}, ${r.tclass}`, rows:[
+      row("CO₂", `${r.rail.toLocaleString("en-IN")} km by rail × ${A.trainG} g CO₂ per passenger-km`, `${M[0].co2} kg`),
+      row("Time", `${half2(r.tH[0],r.tH[1])} hrs on the train${r.tH[1]!==r.tH[0]?` (average of ${range(r.tH[0],r.tH[1],hrs)})`:""}<br>+ ${A.trainBuf} hrs getting to and from stations`, `${hrs(M[0].time[0])} hrs`),
+      row("Cost", r.tFare[1]!==r.tFare[0] ? `Average of ${r.tclass} fares of ${range(r.tFare[0],r.tFare[1],inr)}` : `${cap(r.tclass)} fare`, inr(M[0].cost[0])),
+    ]},
+    {h:"Sleeper bus (75% full)", sub: r.bH ? "AC sleeper coach, diesel" : "", rows: r.bH ? [
+      row("CO₂", `${r.road.toLocaleString("en-IN")} km ÷ ${A.busKmpl} km/L = ${f1(busL)} L of diesel<br>× ${A.dieselKg} kg CO₂/L = ${f1(busL*A.dieselKg)} kg for the whole bus<br>÷ ${A.berths*A.occ} passengers (${A.occ*100}% of ${A.berths} berths)`, `${M[1].co2} kg`),
+      row("Time", `${half2(r.bH[0],r.bH[1])} hrs on the bus (average of ${range(r.bH[0],r.bH[1],hrs)})<br>+ ${A.busBuf} hrs getting to and from stops`, `${hrs(M[1].time[0])} hrs`),
+      row("Cost", `Average of AC sleeper fares of ${range(r.bFare[0],r.bFare[1],inr)}`, inr(M[1].cost[0])),
+    ] : [`<p class="mnote">There is no practical direct sleeper bus on this route.</p>`]},
+    {h:"Petrol car", sub:`Alone, or 4 people sharing`, rows:[
+      row("CO₂", `${r.road.toLocaleString("en-IN")} km ÷ ${A.kmpl} km/L = ${f1(L)} L of petrol<br>× ${A.petrolKg} kg CO₂/L = ${M[4].co2} kg for the car<br>÷ 4 people sharing = ${M[2].co2} kg each`, `${M[4].co2} kg alone<br>${M[2].co2} kg each for 4`),
+      row("Time", `${r.road.toLocaleString("en-IN")} km at ${A.fast} km/h = ${hrs(r.road/A.fast)} hrs, or at ${A.slow} km/h = ${hrs(r.road/A.slow)} hrs<br>Average of the two`, `${hrs(M[4].time[0])} hrs`),
+      row("Cost", `Fuel: ${f1(L)} L × ₹${A.petrolRs} = ${inr(fuelRs)}<br>Tolls: ${r.road.toLocaleString("en-IN")} km × about ₹${f1(tollAvg)} per km = ${inr(tollRs)}<br>÷ 4 people sharing`, `${inr(M[4].cost[0])} alone<br>${inr(M[2].cost[0])} each for 4`),
+    ]},
+    {h:"Flight", sub:"Economy and business, nonstop", rows:[
+      row("CO₂", r.eco!=null ? `ICAO calculator, round trip: ${r.eco} kg economy, ${r.bus} kg business<br>÷ 2 for one way<br><span class="mhint">Business seats take more space, so they get a bigger share of the plane's fuel.</span>` : "ICAO figures to be added", r.eco!=null ? `${M[3].co2} kg economy<br>${M[5].co2} kg business` : "—"),
+      row("Time", `${u(accFrom)} to the airport in ${from}<br>+ ${u(A.wait)} at the airport<br>+ ${u(r.fH)} flying<br>+ ${u(A.exit)} to get out<br>+ ${u(accTo)} to your destination in ${to}`, `${hrs(M[3].time[0])} hrs`),
+      row("Cost", `Half of the average round-trip fare on Google Flights*`, `${M[3].cost ? inr(M[3].cost[0]) : "—"} economy<br>${M[5].noFare ? "No nonstop business class" : (M[5].cost ? inr(M[5].cost[0])+" business" : "—")}`),
+    ]},
+  ];
+  $("math").innerHTML = blocks.map(b => `<details><summary>${b.h}${b.sub?`<span class="msub">${b.sub}</span>`:""}</summary><div class="mbody">${b.rows.join("")}</div></details>`).join("");
+
+  const key = r.a+"–"+r.b;
+  $("sources").innerHTML = SOURCES.filter(s => s[0]==="All" || s[0]===key)
+    .map(s => `<li><a href="${s[2]}">${esc(s[1])}</a></li>`).join("") + (key==="Bengaluru–Chennai" ? "<li>Distances, train, bus and economy fares for this route: as in the video</li>" : "");
+  try{ history.replaceState(null,"","#"+(from+"-"+to).toLowerCase()); }catch(e){}
+}
+$("from").addEventListener("change", render);
+$("to").addEventListener("change", render);
+$("swap").addEventListener("click", () => { const f=$("from").value; $("from").value=$("to").value; $("to").value=f; render(); });
+$("picker").addEventListener("submit", e => e.preventDefault());
+(function init(){
+  const h = location.hash.slice(1).split("-").map(s => CITIES.find(c => c.toLowerCase()===s));
+  if(h.length===2 && h[0] && h[1] && h[0]!==h[1]){ $("from").value=h[0]; $("to").value=h[1]; }
+  render();
+})();
+</script>
+</body>
+</html>
