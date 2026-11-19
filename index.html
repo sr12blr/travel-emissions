@@ -143,10 +143,11 @@ summary .msub{font-weight:400;color:var(--muted);font-size:14px;margin-left:8px}
 const CITIES = ["Bengaluru","Chennai","Delhi","Hyderabad","Kolkata","Mumbai"];
 const A = { trainG:7.837, petrolKg:2.3, kmpl:15, dieselKg:2.6444, busKmpl:3.5, berths:36, occ:0.75,
   petrolRs:111.21, tollLo:1000/660, tollHi:1500/660, wait:1, exit:0.5, trainBuf:3, busBuf:1.5, fast:55, slow:41 };
-const ACCESS = { Bengaluru:[2,2], Chennai:[1,1], Delhi:[1,1.5], Mumbai:[1,1.5], Hyderabad:[1,1.5], Kolkata:[1,1.5] };
+// Time to get to the station or airport at the start, and from it at the end (each side)
+const ACCESS = { Bengaluru:[2,2], Chennai:[1.5,1.5], Delhi:[1.5,1.5], Mumbai:[1.5,1.5], Hyderabad:[1.5,1.5], Kolkata:[1.5,1.5] };
 // One row per city pair (same as the Inputs tab of the data sheet). null = not available yet.
 const ROUTES = [
- {a:"Bengaluru",b:"Chennai",road:330,rail:369,train:"Shatabdi / Vande Bharat",tclass:"chair car",tH:[4.5,5],tFare:[1000,1000],fH:1,bH:[6.5,7],bFare:[590,1184],eco:69,bus:132,fEco:[7000,8000],fBus:[37000,null]},
+ {a:"Bengaluru",b:"Chennai",road:330,rail:369,train:"Shatabdi / Vande Bharat",tclass:"chair car",tH:[4.5,5],tFare:[1000,1000],fH:1,bH:[6.5,7],bFare:[590,1184],eco:69,bus:132,fEco:[7000,8000],fBus:null,noBus:true},
  {a:"Delhi",b:"Mumbai",road:1422,rail:1384,train:"Mumbai Rajdhani (12951/52)",tclass:"AC 3-tier",tH:[15.5,16],tFare:[2345,2345],fH:2.17,bH:null,bFare:null,eco:172,bus:375,fEco:[12000,12500],fBus:[57000,62500]},
  {a:"Delhi",b:"Bengaluru",road:2167,rail:2371,train:"Bengaluru Rajdhani (22691/92)",tclass:"AC 3-tier",tH:[33.5,34],tFare:[2360,2360],fH:2.75,bH:null,bFare:null,eco:231,bus:509,fEco:[19000,20000],fBus:[67000,67000]},
  {a:"Delhi",b:"Chennai",road:2201,rail:2182,train:"Chennai Rajdhani (12433/34), twice a week",tclass:"AC 3-tier",tH:[28,28.5],tFare:[2315,2390],fH:2.83,bH:null,bFare:null,eco:230,bus:548,fEco:[21500,22000],fBus:[63000,65000]},
@@ -181,13 +182,13 @@ function compute(from,to){
   const tollAvg = (A.tollLo + A.tollHi)/2;
   const longDrive = r.road/A.fast > 12;
   return { r, modes: [
-    {id:"train", name:"Train", co2: Math.round(r.rail*A.trainG/100)/10, time: one(avg(r.tH[0], r.tH[1]) + A.trainBuf), cost: one(rTo(mean(r.tFare), 5))},
+    {id:"train", name:"Train", co2: Math.round(r.rail*A.trainG/100)/10, time: one(Math.round((avg(r.tH[0], r.tH[1]) + ACCESS[from][0] + ACCESS[to][0])*10)/10), cost: one(rTo(mean(r.tFare), 5))},
     {id:"bus", name:"Sleeper bus (75% full)", co2: r.bH? r1(busKg): null, time: r.bH? one(avg(r.bH[0], r.bH[1]) + A.busBuf) : null, cost: r.bFare? one(rTo(mean(r.bFare),50)) : null, na: !r.bH && "No practical direct bus on this route"},
     {id:"car4", name:"Petrol car (4 people)", co2: r1(carKg/4), time: one(carT), cost: one(rTo((fuelRs+r.road*tollAvg)/4,50)), note: longDrive && "Driving time only; needs overnight stops"},
     {id:"eco", name:"Flight (economy)", flight:true, co2: r.eco!=null ? Math.round(r.eco/2) : null, time: one(Math.round(flT*10)/10), cost: half(r.fEco), star:true},
     {id:"car1", name:"Petrol car (alone)", co2: r1(carKg), time: one(carT), cost: one(rTo(fuelRs+r.road*tollAvg,100)), note: longDrive && "Driving time only; needs overnight stops"},
     {id:"bus1", name:"Flight (business)", flight:true, co2: r.bus!=null ? Math.round(r.bus/2) : null, time: one(Math.round(flT*10)/10), cost: half(r.fBus), star:true, note: r.noBus && "No nonstop business class on this route; CO₂ is ICAO's business figure", noFare: r.noBus},
-  ]};
+  ].filter(m => !(m.id==="bus1" && r.noBus)), noBusiness: !!r.noBus };
 }
 </script>
 <script>
@@ -200,7 +201,6 @@ const SOURCES = [
  ["All","Sleeper bus berths: Coach Builders India","https://coachbuildersindia.com/sleeper-buses-in-india-explained/"],
  ["All","Petrol price (Mumbai): BankBazaar","https://www.bankbazaar.com/fuel/petrol-price-mumbai.html"],
  ["Bengaluru–Chennai","Bus fare: zingbus","https://www.zingbus.com/blog/bangalore-to-chennai-by-bus-complete-guide/"],
- ["Bengaluru–Chennai","Business fare: Air India","https://www.airindia.com/en-in/book-flights/bangalore-to-chennai-flights"],
  ["Delhi–Mumbai","Road distance: Holidify","https://www.holidify.com/places/mumbai/how-to-reach/delhi-to-mumbai-1192.html"],
  ["Delhi–Mumbai","Mumbai Rajdhani distance, time and fare: India.com","https://www.india.com/news/india-fastest-rajdhani-express-top-speed-stoppages-fares-shatabdi-express-duronto-express-tejas-express-vande-bharat-express-gatimaan-express-humsafar-express-garib-rath-express-jan-shatabdi-e-7675056/"],
  ["Delhi–Bengaluru","Road distance: Holidify","https://www.holidify.com/places/bangalore/how-to-reach/delhi-to-bangalore-182.html"],
@@ -268,7 +268,7 @@ function render(){
   const mid = v => v ? (v[0]+v[1])/2 : Infinity;
   const COLOR = {train:"var(--m1)", bus:"var(--m2)", car4:"var(--m3)", eco:"var(--m4)", car1:"var(--m5)", bus1:"var(--m6)"};
   const low = [...res.modes].sort((x,y)=>mid(get.co2(x))-mid(get.co2(y)))[0];
-  $("legend").innerHTML = res.modes.map(m => `<span><i style="background:${COLOR[m.id]}"></i>${esc(m.name)}</span>`).join("");
+  $("legend").innerHTML = res.modes.map(m => `<span><i style="background:${COLOR[m.id]}"></i>${esc(m.name.replace(" (75% full)",""))}</span>`).join("");
   const CH = [
     {k:"co2", title:"CO₂", sub:"kg per person, one way", best:"Lowest", fmt:(v)=>`${v[0]} <small>kg</small>`},
     {k:"time", title:"Time", sub:"average hours, door to door", best:"Fastest", fmt:(v)=>`${range(v[0],v[1],hrs)} <small>hrs</small>`},
@@ -301,10 +301,12 @@ function render(){
       return `<div class="col"><div class="cval">${txt}${mid(v)===bestV?`<span class="best">${c.best}</span>`:""}</div><div class="cstack">${stack}</div></div>`;
     }).join("");
     const labs = sorted.map(({m}) => `<div class="clab"><i style="background:${COLOR[m.id]}"></i>${esc(SHORT[m.id])}</div>`).join("");
-    const rows = `<div class="cols" style="min-height:${HPX+70}px">${colsHtml}</div><div class="clabs">${labs}</div>`;
+    const gcols = `grid-template-columns:repeat(${sorted.length},minmax(0,1fr))`;
+    const rows = `<div class="cols" style="min-height:${HPX+70}px;${gcols}">${colsHtml}</div><div class="clabs" style="${gcols}">${labs}</div>`;
     return `<section class="chart" aria-label="${c.title}"><h3>${c.title}</h3><p class="sub">${c.sub}</p>${rows}</section>`;
   }).join("");
   const notes = [];
+  if(res.noBusiness) notes.push("There's no nonstop business class on this route, so business class isn't shown.");
   if(brokenNotes.length) notes.push(`A column with a break (${brokenNotes.join(", ")}) is too long to draw to scale; its value is shown in full.`);
     if(res.modes.some(m=>m.note && /overnight/.test(m.note))) notes.push("Driving times are time behind the wheel only; long drives need overnight stops.");
   $("scalenote").textContent = notes.join(" ");
@@ -328,7 +330,7 @@ function render(){
   const blocks = [
     {h:"Train", sub:`${esc(r.train)}, ${r.tclass}`, rows:[
       row("CO₂", `${r.rail.toLocaleString("en-IN")} km by rail × ${A.trainG} g CO₂ per passenger-km`, `${M[0].co2} kg`),
-      row("Time", `${half2(r.tH[0],r.tH[1])} hrs on the train${r.tH[1]!==r.tH[0]?` (average of ${range(r.tH[0],r.tH[1],hrs)})`:""}<br>+ ${A.trainBuf} hrs getting to and from stations`, `${hrs(M[0].time[0])} hrs`),
+      row("Time", `${half2(r.tH[0],r.tH[1])} hrs on the train${r.tH[1]!==r.tH[0]?` (average of ${range(r.tH[0],r.tH[1],hrs)})`:""}<br>+ ${u(ACCESS[from][0])} to the station in ${from}<br>+ ${u(ACCESS[to][0])} from the station in ${to}`, `${hrs(M[0].time[0])} hrs`),
       row("Cost", r.tFare[1]!==r.tFare[0] ? `Average of ${r.tclass} fares of ${range(r.tFare[0],r.tFare[1],inr)}` : `${cap(r.tclass)} fare`, inr(M[0].cost[0])),
     ]},
     {h:"Sleeper bus (75% full)", sub: r.bH ? "AC sleeper coach, diesel" : "", rows: r.bH ? [
@@ -341,10 +343,10 @@ function render(){
       row("Time", `${r.road.toLocaleString("en-IN")} km at ${A.fast} km/h = ${hrs(r.road/A.fast)} hrs, or at ${A.slow} km/h = ${hrs(r.road/A.slow)} hrs<br>Average of the two`, `${hrs(M[4].time[0])} hrs`),
       row("Cost", `Fuel: ${f1(L)} L × ₹${A.petrolRs} = ${inr(fuelRs)}<br>Tolls: ${r.road.toLocaleString("en-IN")} km × about ₹${f1(tollAvg)} per km = ${inr(tollRs)}<br>÷ 4 people sharing`, `${inr(M[4].cost[0])} alone<br>${inr(M[2].cost[0])} each for 4`),
     ]},
-    {h:"Flight", sub:"Economy and business, nonstop", rows:[
-      row("CO₂", r.eco!=null ? `ICAO calculator, round trip: ${r.eco} kg economy, ${r.bus} kg business<br>÷ 2 for one way<br><span class="mhint">Business seats take more space, so they get a bigger share of the plane's fuel.</span>` : "ICAO figures to be added", r.eco!=null ? `${M[3].co2} kg economy<br>${M[5].co2} kg business` : "—"),
+    {h:"Flight", sub: M[5] ? "Economy and business, nonstop" : "Economy, nonstop (no nonstop business class on this route)", rows:[
+      row("CO₂", r.eco!=null ? (M[5] ? `ICAO calculator, round trip: ${r.eco} kg economy, ${r.bus} kg business<br>÷ 2 for one way<br><span class="mhint">Business seats take more space, so they get a bigger share of the plane's fuel.</span>` : `ICAO calculator, round trip: ${r.eco} kg economy<br>÷ 2 for one way`) : "ICAO figures to be added", r.eco!=null ? `${M[3].co2} kg economy${M[5] ? `<br>${M[5].co2} kg business` : ""}` : "—"),
       row("Time", `${u(accFrom)} to the airport in ${from}<br>+ ${u(A.wait)} at the airport<br>+ ${u(r.fH)} flying<br>+ ${u(A.exit)} to get out<br>+ ${u(accTo)} to your destination in ${to}`, `${hrs(M[3].time[0])} hrs`),
-      row("Cost", `Half of the average round-trip fare on Google Flights*`, `${M[3].cost ? inr(M[3].cost[0]) : "—"} economy<br>${M[5].noFare ? "No nonstop business class" : (M[5].cost ? inr(M[5].cost[0])+" business" : "—")}`),
+      row("Cost", `Half of the average round-trip fare on Google Flights*`, `${M[3].cost ? inr(M[3].cost[0]) : "—"} economy${M[5] ? `<br>${M[5].cost ? inr(M[5].cost[0])+" business" : "—"}` : ""}`),
     ]},
   ];
   $("math").innerHTML = blocks.map(b => `<details><summary>${b.h}${b.sub?`<span class="msub">${b.sub}</span>`:""}</summary><div class="mbody">${b.rows.join("")}</div></details>`).join("");
