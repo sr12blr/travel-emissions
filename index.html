@@ -46,6 +46,7 @@ select:focus-visible,button:focus-visible,summary:focus-visible,a:focus-visible{
 .night{display:flex;gap:10px;align-items:flex-start;background:var(--accent-soft);border-radius:10px;padding:10px 14px;font-size:15px;max-width:68ch;margin:0}
 .night[hidden]{display:none}
 .night b{color:var(--accent)}
+.ntag.ntop{display:block;width:max-content;margin:0 auto 4px}
 .ntag{display:inline-block;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:1px}
 .takeaway{font-size:18px;margin:0;max-width:62ch}
 .takeaway strong{color:var(--good)}
@@ -310,9 +311,9 @@ function render(){
         stack = `<div class="cfill${h2>0.5?"":" top"}" style="height:${h1}px;background:${col}"></div>` + (h2>0.5 ? `<div class="cfill hi top" style="height:${h2}px;background:${col}"></div>` : "");
       }
       const txt = c.fmt(v,m).replace("–","–<br>");
-      return `<div class="col"><div class="cval">${txt}${mid(v)===bestV?`<span class="best">${c.best}</span>`:""}</div><div class="cstack">${stack}</div></div>`;
+      return `<div class="col"><div class="cval">${c.k==="time" && m.id==="train" && r.night ? `<span class="ntag ntop">${r.night.train.split(" (")[0] === r.train.split(" (")[0] ? "Overnight" : "Overnight option"}</span>` : ""}${txt}${mid(v)===bestV?`<span class="best">${c.best}</span>`:""}</div><div class="cstack">${stack}</div></div>`;
     }).join("");
-    const labs = sorted.map(({m}) => `<div class="clab"><i style="background:${COLOR[m.id]}"></i>${esc(SHORT[m.id])}${m.id==="train" && r.night ? '<span class="ntag">Overnight</span>' : ""}</div>`).join("");
+    const labs = sorted.map(({m}) => `<div class="clab"><i style="background:${COLOR[m.id]}"></i>${esc(SHORT[m.id])}</div>`).join("");
     const gcols = `grid-template-columns:repeat(${sorted.length},minmax(0,1fr))`;
     const rows = `<div class="cols" style="min-height:${HPX+70}px;${gcols}">${colsHtml}</div><div class="clabs" style="${gcols}">${labs}</div>`;
     return `<section class="chart" aria-label="${c.title}"><h3>${c.title}</h3><p class="sub">${c.sub}</p>${rows}</section>`;
