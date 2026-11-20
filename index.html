@@ -312,9 +312,29 @@ function render(){
   $("scalenote").textContent = notes.join(" ");
 
   const train = res.modes[0], eco = res.modes[3], car1 = res.modes[4];
-  let t = `On ${from}–${to}, the <strong>${esc(low.name.toLowerCase())}</strong> emits the least CO₂: ${low.co2} kg per person, one way.`;
-  if(eco.co2!=null) t += ` A flight in economy emits about ${Math.round(eco.co2/low.co2)} times as much (${eco.co2} kg).`;
-  else t += ` Driving alone emits about ${Math.round(car1.co2/low.co2)} times as much (${car1.co2} kg).`;
+  // Summary line: the train against an economy flight, worded to fit the route
+  const ord = n => { const s = (n%100>=11 && n%100<=13) ? "th" : ({1:"st",2:"nd",3:"rd"}[n%10] || "th"); return n + s; };
+  const share = n => n<=1 ? "about the same" : n===2 ? "half" : n===3 ? "a third" : n===4 ? "a quarter" : `1/${ord(n)}`;
+  const halfHr = x => { const v = Math.round(x*2)/2; return `${v % 1 ? v.toFixed(1) : v} ${v===1 ? "hour" : "hours"}`; };
+  let t;
+  if(eco.co2 == null){
+    t = `On ${from}–${to}, the <strong>train</strong> has the lowest emissions: ${train.co2} kg of CO₂ per person.`;
+  } else {
+    const n = Math.round(eco.co2/train.co2);
+    t = `If you take the <strong>train</strong> from ${from} to ${to}, your emissions are ${share(n)} of a flight's (${train.co2} kg of CO₂ against ${eco.co2} kg). `;
+    const dt = train.time[0] - eco.time[0];
+    if(dt <= 0.25) t += `It's just as quick door to door`;
+    else if(dt <= 4) t += `You'll take longer, but just ${halfHr(dt)} more door to door`;
+    else if(dt <= 12) t += `You'll take about ${halfHr(dt)} longer door to door (${hrs(train.time[0])} hours against ${hrs(eco.time[0])})`;
+    else t += `It is a much longer trip, though: ${Math.round(train.time[0])} hours door to door against about ${Math.round(eco.time[0])} by air`;
+    const tc = train.cost && train.cost[0], fc = eco.cost && eco.cost[0];
+    if(tc && fc){
+      const long = dt > 12;
+      if(fc/tc >= 1.5) t += long ? `. On the plus side, it's much lighter on the wallet: ${inr(tc)} against ${inr(fc)}.` : `, and it's lighter on the wallet too: ${inr(tc)} against ${inr(fc)}.`;
+      else if(fc/tc >= 0.85) t += `, and it costs about the same as flying.`;
+      else t += `, and it costs a little more than flying (${inr(tc)} against ${inr(fc)}).`;
+    } else t += ".";
+  }
   $("takeaway").innerHTML = t;
 
   // Show the math: one block per mode, with CO2, time and cost as separate steps and the result on the right
