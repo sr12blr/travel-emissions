@@ -43,6 +43,10 @@ select{appearance:none;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns
 button.swap{background:var(--accent-soft);border:1px solid transparent;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:600;color:var(--accent)}
 select:focus-visible,button:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .basis{flex-basis:100%;font-size:13px;color:var(--muted);margin:0}
+.night{display:flex;gap:10px;align-items:flex-start;background:var(--accent-soft);border-radius:10px;padding:10px 14px;font-size:15px;max-width:68ch;margin:0}
+.night[hidden]{display:none}
+.night b{color:var(--accent)}
+.ntag{display:inline-block;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:1px}
 .takeaway{font-size:18px;margin:0;max-width:62ch}
 .takeaway strong{color:var(--good)}
 .sortbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
@@ -111,6 +115,7 @@ summary .msub{font-weight:400;color:var(--muted);font-size:14px;margin-left:8px}
   </form>
 
   <p class="takeaway" id="takeaway"></p>
+  <p class="night" id="night" hidden></p>
 
   <section aria-labelledby="modes-h" style="display:grid;gap:12px">
     <h2 id="modes-h">Compare the options</h2>
@@ -147,17 +152,17 @@ const A = { trainG:7.837, petrolKg:2.3, kmpl:15, dieselKg:2.6444, busKmpl:3.5, b
 const ACCESS = { Bengaluru:[2,2], Chennai:[1.5,1.5], Delhi:[1.5,1.5], Mumbai:[1.5,1.5], Hyderabad:[1.5,1.5], Kolkata:[1.5,1.5] };
 // One row per city pair (same as the Inputs tab of the data sheet). null = not available yet.
 const ROUTES = [
- {a:"Bengaluru",b:"Chennai",road:330,rail:369,train:"Shatabdi / Vande Bharat",tclass:"chair car",tH:[4.5,5],tFare:[1000,1000],fH:1,bH:[6.5,7],bFare:[590,1184],eco:69,bus:132,fEco:[7000,8000],fBus:null,noBus:true},
- {a:"Delhi",b:"Mumbai",road:1422,rail:1384,train:"Mumbai Rajdhani (12951/52)",tclass:"AC 3-tier",tH:[15.5,16],tFare:[2345,2345],fH:2.17,bH:null,bFare:null,eco:172,bus:375,fEco:[12000,12500],fBus:[57000,62500]},
+ {night:{train:"Chennai Mail (12658)",from:"Bengaluru",dep:"10:40 pm",to:"Chennai",arr:"4:15 am"},a:"Bengaluru",b:"Chennai",road:330,rail:369,train:"Shatabdi / Vande Bharat",tclass:"chair car",tH:[4.5,5],tFare:[1000,1000],fH:1,bH:[6.5,7],bFare:[590,1184],eco:69,bus:132,fEco:[7000,8000],fBus:null,noBus:true},
+ {night:{train:"Mumbai Rajdhani (12951)",from:"Mumbai",dep:"5 pm",to:"Delhi",arr:"8:32 am"},a:"Delhi",b:"Mumbai",road:1422,rail:1384,train:"Mumbai Rajdhani (12951/52)",tclass:"AC 3-tier",tH:[15.5,16],tFare:[2345,2345],fH:2.17,bH:null,bFare:null,eco:172,bus:375,fEco:[12000,12500],fBus:[57000,62500]},
  {a:"Delhi",b:"Bengaluru",road:2167,rail:2371,train:"Bengaluru Rajdhani (22691/92)",tclass:"AC 3-tier",tH:[33.5,34],tFare:[2360,2360],fH:2.75,bH:null,bFare:null,eco:231,bus:509,fEco:[19000,20000],fBus:[67000,67000]},
  {a:"Delhi",b:"Chennai",road:2201,rail:2182,train:"Chennai Rajdhani (12433/34), twice a week",tclass:"AC 3-tier",tH:[28,28.5],tFare:[2315,2390],fH:2.83,bH:null,bFare:null,eco:230,bus:548,fEco:[21500,22000],fBus:[63000,65000]},
  {a:"Delhi",b:"Hyderabad",road:1578,rail:1667,train:"Secunderabad Rajdhani (12437/38), weekly",tclass:"AC 3-tier",tH:[21.5,22],tFare:[1945,1945],fH:2.25,bH:null,bFare:null,eco:176,bus:380,fEco:[18000,18000],fBus:[56000,57500]},
- {a:"Mumbai",b:"Bengaluru",road:980,rail:1113,train:"Vande Bharat Sleeper (27651/52)",tclass:"AC 3-tier",tH:[15.75,16.25],tFare:[2810,2810],fH:1.75,bH:[15,19],bFare:[2415,2625],eco:132,bus:286,fEco:[11000,13000],fBus:[49000,60000]},
+ {night:{train:"Vande Bharat Sleeper (27652)",from:"Bengaluru",dep:"7:45 pm",to:"Mumbai",arr:"11:55 am"},a:"Mumbai",b:"Bengaluru",road:980,rail:1113,train:"Vande Bharat Sleeper (27651/52)",tclass:"AC 3-tier",tH:[15.75,16.25],tFare:[2810,2810],fH:1.75,bH:[15,19],bFare:[2415,2625],eco:132,bus:286,fEco:[11000,13000],fBus:[49000,60000]},
  {a:"Mumbai",b:"Chennai",road:1335,rail:1268,train:"LTT–Chennai Express (12163/64)",tclass:"AC 3-tier",tH:[21.5,22],tFare:[1490,1490],fH:2,bH:null,bFare:null,eco:162,bus:376,fEco:[14000,14000],fBus:[49500,51000]},
- {a:"Mumbai",b:"Hyderabad",road:739,rail:796,train:"LTT–Secunderabad Duronto (12219/20)",tclass:"AC 3-tier",tH:[12,12.5],tFare:[1140,1140],fH:1.5,bH:[14,16],bFare:[818,1617],eco:108,bus:222,fEco:[12500,12500],fBus:[41000,42500]},
- {a:"Bengaluru",b:"Hyderabad",road:569,rail:610,train:"Kacheguda–Yesvantpur Vande Bharat (20703/04)",tclass:"chair car",tH:[8.25,8.5],tFare:[1540,1600],fH:1.25,bH:[9,10.5],bFare:[950,1400],eco:92,bus:187,fEco:[10000,10500],fBus:null,noBus:true},
- {a:"Chennai",b:"Hyderabad",road:627,rail:693,train:"Chennai–Hyderabad SF Express (12603/04)",tclass:"AC 3-tier",tH:[12,12.5],tFare:[1000,1000],fH:1.25,bH:[10,12],bFare:[550,1400],eco:94,bus:226,fEco:[10500,11000],fBus:null,noBus:true},
- {a:"Delhi",b:"Kolkata",road:1486,rail:1449,train:"Howrah Rajdhani (12301/02)",tclass:"AC 3-tier",tH:[17,17.25],tFare:[1662,3036],fH:2.25,bH:null,bFare:null,eco:187,bus:428,fEco:[18000,18000],fBus:[55500,69000]},
+ {night:{train:"LTT–Secunderabad Duronto (12219)",from:"Mumbai",dep:"11:05 pm",to:"Hyderabad",arr:"11:30 am",note:"runs twice a week"},a:"Mumbai",b:"Hyderabad",road:739,rail:796,train:"LTT–Secunderabad Duronto (12219/20)",tclass:"AC 3-tier",tH:[12,12.5],tFare:[1140,1140],fH:1.5,bH:[14,16],bFare:[818,1617],eco:108,bus:222,fEco:[12500,12500],fBus:[41000,42500]},
+ {night:{train:"Kacheguda Express (12786)",from:"Bengaluru",dep:"6 pm",to:"Hyderabad",arr:"5:40 am"},a:"Bengaluru",b:"Hyderabad",road:569,rail:610,train:"Kacheguda–Yesvantpur Vande Bharat (20703/04)",tclass:"chair car",tH:[8.25,8.5],tFare:[1540,1600],fH:1.25,bH:[9,10.5],bFare:[950,1400],eco:92,bus:187,fEco:[10000,10500],fBus:null,noBus:true},
+ {night:{train:"Charminar Express (12759)",from:"Chennai",dep:"6:20 pm",to:"Hyderabad",arr:"8:10 am"},a:"Chennai",b:"Hyderabad",road:627,rail:693,train:"Chennai–Hyderabad SF Express (12603/04)",tclass:"AC 3-tier",tH:[12,12.5],tFare:[1000,1000],fH:1.25,bH:[10,12],bFare:[550,1400],eco:94,bus:226,fEco:[10500,11000],fBus:null,noBus:true},
+ {night:{train:"Howrah Rajdhani (12301)",from:"Kolkata",dep:"4:50 pm",to:"Delhi",arr:"10:05 am"},a:"Delhi",b:"Kolkata",road:1486,rail:1449,train:"Howrah Rajdhani (12301/02)",tclass:"AC 3-tier",tH:[17,17.25],tFare:[1662,3036],fH:2.25,bH:null,bFare:null,eco:187,bus:428,fEco:[18000,18000],fBus:[55500,69000]},
  {a:"Mumbai",b:"Kolkata",road:1943,rail:1968,train:"Mumbai–Howrah Duronto (12261/62)",tclass:"AC 3-tier",tH:[26.5,27.5],tFare:[2585,2610],fH:2.75,bH:null,bFare:null,eco:219,bus:478,fEco:[16000,17000],fBus:[64500,64500]},
  {a:"Bengaluru",b:"Kolkata",road:1880,rail:1931,train:"Howrah–SMVT Bengaluru Duronto (12245/46)",tclass:"AC 3-tier",tH:[29.1,29.8],tFare:[2125,3025],fH:2.5,bH:null,bFare:null,eco:202,bus:434,fEco:[15500,16000],fBus:null,noBus:true},
  {a:"Chennai",b:"Kolkata",road:1670,rail:1662,train:"Coromandel Express (12841/42)",tclass:"AC 3-tier",tH:[25.8,28],tFare:[1650,2000],fH:2.25,bH:null,bFare:null,eco:182,bus:450,fEco:[15500,15500],fBus:null,noBus:true},
@@ -240,6 +245,13 @@ const SOURCES = [
  ["Hyderabad–Kolkata","Road distance: Holidify","https://www.holidify.com/places/hyderabad/how-to-reach/kolkata-to-hyderabad-661.html"],
  ["Hyderabad–Kolkata","Falaknuma Express distance and time: ixigo","https://www.ixigo.com/trains/12703"],
  ["Hyderabad–Kolkata","Falaknuma Express fare: Bajaj Finserv","https://www.bajajfinserv.in/12704-train-route"],
+ ["Bengaluru–Chennai","Overnight Chennai Mail timings: ixigo","https://ixigo.com/trains/12658/running-status"],
+ ["Delhi–Mumbai","Rajdhani timings: ixigo","https://www.ixigo.com/trains/12951"],
+ ["Mumbai–Bengaluru","Vande Bharat Sleeper timings: RailYatri","https://www.railyatri.in/trains/route-27652-VANDE-BHARAT-SL"],
+ ["Mumbai–Hyderabad","Duronto timings: ixigo","https://www.ixigo.com/trains/12219"],
+ ["Bengaluru–Hyderabad","Kacheguda Express timings: Travelkhana","https://www.travelkhana.com/travelkhana/track-train/12786-Bangalore-City-Kacheguda-SF-Express"],
+ ["Chennai–Hyderabad","Charminar Express timings: ixigo","https://www.ixigo.com/trains/12759"],
+ ["Delhi–Kolkata","Howrah Rajdhani timings: ixigo","https://www.ixigo.com/trains/12301"],
 ];
 const $ = id => document.getElementById(id);
 const inr = n => "₹" + n.toLocaleString("en-IN");
@@ -300,7 +312,7 @@ function render(){
       const txt = c.fmt(v,m).replace("–","–<br>");
       return `<div class="col"><div class="cval">${txt}${mid(v)===bestV?`<span class="best">${c.best}</span>`:""}</div><div class="cstack">${stack}</div></div>`;
     }).join("");
-    const labs = sorted.map(({m}) => `<div class="clab"><i style="background:${COLOR[m.id]}"></i>${esc(SHORT[m.id])}</div>`).join("");
+    const labs = sorted.map(({m}) => `<div class="clab"><i style="background:${COLOR[m.id]}"></i>${esc(SHORT[m.id])}${m.id==="train" && r.night ? '<span class="ntag">Overnight</span>' : ""}</div>`).join("");
     const gcols = `grid-template-columns:repeat(${sorted.length},minmax(0,1fr))`;
     const rows = `<div class="cols" style="min-height:${HPX+70}px;${gcols}">${colsHtml}</div><div class="clabs" style="${gcols}">${labs}</div>`;
     return `<section class="chart" aria-label="${c.title}"><h3>${c.title}</h3><p class="sub">${c.sub}</p>${rows}</section>`;
@@ -336,6 +348,9 @@ function render(){
     } else t += ".";
   }
   $("takeaway").innerHTML = t;
+  const nt = r.night;
+  $("night").hidden = !nt;
+  if(nt) $("night").innerHTML = `<span><b>Overnight train:</b> ${esc(nt.train)} leaves ${nt.from} at ${nt.dep} and reaches ${nt.to} at ${nt.arr}${nt.note ? ` (${nt.note})` : ""}. You travel while you sleep, so it costs you less of your day than the hours suggest.${nt.train.split(" (")[0] !== r.train.split(" (")[0] ? ` The figures above use the ${esc(r.train.split(" (")[0])}.` : ""}</span>`;
 
   // Show the math: one block per mode, with CO2, time and cost as separate steps and the result on the right
   const f1 = n => n.toLocaleString("en-IN",{maximumFractionDigits:1});
