@@ -48,8 +48,9 @@ select:focus-visible,button:focus-visible,summary:focus-visible,a:focus-visible{
 .night b{color:var(--accent)}
 .ntag.ntop{display:block;width:max-content;margin:0 auto 4px}
 .ntag{display:inline-block;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:1px}
-.takeaway{font-size:18px;margin:0;max-width:62ch}
-.takeaway strong{color:var(--good)}
+.nbub{position:relative;margin:14px 0 6px;background:var(--accent-soft);border-radius:10px;padding:9px 13px;font-size:14px;line-height:1.45}
+.nbub b{color:var(--accent)}
+.nbub::before{content:"";position:absolute;top:-8px;left:clamp(14px,var(--tx),calc(100% - 14px));transform:translateX(-50%);border:8px solid transparent;border-top:0;border-bottom-color:var(--accent-soft)}
 .sortbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
 .sortbar button{background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;font-weight:500;color:var(--ink)}
 .sortbar button[aria-pressed="true"]{background:var(--accent-soft);border-color:transparent;color:var(--accent);font-weight:600}
@@ -115,8 +116,6 @@ summary .msub{font-weight:400;color:var(--muted);font-size:14px;margin-left:8px}
     <p class="basis" id="basis"></p>
   </form>
 
-  <p class="takeaway" id="takeaway"></p>
-  <p class="night" id="night" hidden></p>
 
   <section aria-labelledby="modes-h" style="display:grid;gap:12px">
     <h2 id="modes-h">Compare the options</h2>
@@ -311,12 +310,19 @@ function render(){
         stack = `<div class="cfill${h2>0.5?"":" top"}" style="height:${h1}px;background:${col}"></div>` + (h2>0.5 ? `<div class="cfill hi top" style="height:${h2}px;background:${col}"></div>` : "");
       }
       const txt = c.fmt(v,m).replace("–","–<br>");
-      return `<div class="col"><div class="cval">${c.k==="time" && m.id==="train" && r.night ? `<span class="ntag ntop">${r.night.train.split(" (")[0] === r.train.split(" (")[0] ? "Overnight" : "Overnight option"}</span>` : ""}${txt}${mid(v)===bestV?`<span class="best">${c.best}</span>`:""}</div><div class="cstack">${stack}</div></div>`;
+      return `<div class="col"><div class="cval">${txt}${mid(v)===bestV?`<span class="best">${c.best}</span>`:""}</div><div class="cstack">${stack}</div></div>`;
     }).join("");
     const labs = sorted.map(({m}) => `<div class="clab"><i style="background:${COLOR[m.id]}"></i>${esc(SHORT[m.id])}</div>`).join("");
     const gcols = `grid-template-columns:repeat(${sorted.length},minmax(0,1fr))`;
     const rows = `<div class="cols" style="min-height:${HPX+70}px;${gcols}">${colsHtml}</div><div class="clabs" style="${gcols}">${labs}</div>`;
-    return `<section class="chart" aria-label="${c.title}"><h3>${c.title}</h3><p class="sub">${c.sub}</p>${rows}</section>`;
+    let bub = "";
+    const nt = r.night;
+    if(c.k==="time" && nt){
+      const ti = sorted.findIndex(x => x.m.id==="train");
+      const same = nt.train.split(" (")[0] === r.train.split(" (")[0];
+      bub = `<p class="nbub" style="--tx:${((ti+0.5)/sorted.length*100).toFixed(1)}%"><b>Overnight train:</b> ${esc(nt.train)} leaves ${nt.from} at ${nt.dep} and reaches ${nt.to} at ${nt.arr}${nt.note ? ` (${nt.note})` : ""}. You travel while you sleep, so it takes less of your day than the hours suggest.${same ? "" : ` The train time above is for the ${esc(r.train.split(" (")[0])}.`}</p>`;
+    }
+    return `<section class="chart" aria-label="${c.title}"><h3>${c.title}</h3><p class="sub">${c.sub}</p>${rows}${bub}</section>`;
   }).join("");
   const notes = [];
   if(res.noBusiness) notes.push("There's no nonstop business class on this route, so business class isn't shown.");
@@ -324,24 +330,6 @@ function render(){
     if(res.modes.some(m=>m.note && /overnight/.test(m.note))) notes.push("Driving times are time behind the wheel only; long drives need overnight stops.");
   $("scalenote").textContent = notes.join(" ");
 
-  const train = res.modes[0], eco = res.modes[3], car1 = res.modes[4];
-  // Summary line: what flying buys you, compared with the train
-  const halfHr = x => { const v = Math.round(x*2)/2; return `${v % 1 ? v.toFixed(1) : v} ${v===1 ? "hour" : "hours"}`; };
-  let t;
-  if(eco.co2 == null || !eco.cost){
-    t = `On ${from}–${to}, the <strong>train</strong> has the lowest emissions: ${train.co2} kg of CO₂ per person.`;
-  } else {
-    const dt = train.time[0] - eco.time[0];
-    const dCost = eco.cost[0] - train.cost[0];
-    const dCo2 = Math.round(eco.co2 - train.co2);
-    const costPart = dCost > 0 ? `${inr(Math.round(dCost/50)*50)} more` : `about the same money`;
-    if(dt < 0.5) t = `Flying from ${from} to ${to} saves you almost no time over the <strong>train</strong>, door to door. It costs you ${costPart} and <strong>${dCo2} kg of extra CO₂</strong>.`;
-    else t = `Flying from ${from} to ${to} saves you <strong>${halfHr(dt)}</strong> over the <strong>train</strong>, door to door. Those hours cost you ${costPart} and <strong>${dCo2} kg of extra CO₂</strong>.`;
-  }
-  $("takeaway").innerHTML = t;
-  const nt = r.night;
-  $("night").hidden = !nt;
-  if(nt) $("night").innerHTML = `<span><b>Overnight train:</b> ${esc(nt.train)} leaves ${nt.from} at ${nt.dep} and reaches ${nt.to} at ${nt.arr}${nt.note ? ` (${nt.note})` : ""}. You travel while you sleep, so it costs you less of your day than the hours suggest.${nt.train.split(" (")[0] !== r.train.split(" (")[0] ? ` The figures above use the ${esc(r.train.split(" (")[0])}.` : ""}</span>`;
 
   // Show the math: one block per mode, with CO2, time and cost as separate steps and the result on the right
   const f1 = n => n.toLocaleString("en-IN",{maximumFractionDigits:1});
